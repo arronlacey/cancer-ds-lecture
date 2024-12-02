@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Interactive Distributions</title>
+    <title>Data Distributions</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
         .container {
             max-width: 800px;
@@ -22,7 +24,18 @@
             flex-direction: column;
         }
         #normal-plot {
-            display: none; /* Initially hide the normal plot */
+            display: none;
+        }
+        .equation-container {
+            text-align: center;
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .equation {
+            font-size: 18px;
+            margin: 10px 0;
         }
     </style>
 </head>
@@ -37,7 +50,19 @@
         <button id="show-normal-btn">Show Normal Distribution</button>
         <div id="plot-container">
             <div id="poisson-plot"></div>
+            <div class="equation-container">
+                <div class="equation">
+                    Poisson PMF: \[P(X = k) = \frac{\lambda^k e^{-\lambda}}{k!}\]
+                    where \(\lambda\) is the mean number of events in the interval
+                </div>
+            </div>
             <div id="normal-plot"></div>
+            <div class="equation-container" style="display: none;" id="normal-equation-container">
+                <div class="equation">
+                    Normal PDF: \[f(x) = \frac{1}{\sigma\sqrt{2\pi}} e^{-\frac{(x-\mu)^2}{2\sigma^2}}\]
+                    where \(\mu\) is the mean and \(\sigma\) is the standard deviation
+                </div>
+            </div>
         </div>
         <div id="normal-sliders" style="display:none;">
             <div class="slider-container">
@@ -84,7 +109,7 @@
 
                 noisyYValues.push(p + (Math.random() - 0.5) * 0.01 * p);
 
-                const stderr = Math.sqrt(p * (1 - p) / 1000); // assuming n=1000
+                const stderr = Math.sqrt(p * (1 - p) / 1000);
                 upperCI.push(p + 1.96 * stderr);
                 lowerCI.push(Math.max(0, p - 1.96 * stderr));
             }
@@ -101,12 +126,9 @@
                 xValues.push(x);
                 const p = normalPDF(x, mean, stddev);
                 yValues.push(p);
-
-                // Add some noise to the data points
                 noisyYValues.push(p + (Math.random() - 0.5) * 0.01 * p);
             }
 
-            // Calculate confidence intervals (using normal approximation)
             const upperCI = yValues.map(y => y + 1.96 * Math.sqrt(y * (1 - y) / 1000));
             const lowerCI = yValues.map(y => Math.max(0, y - 1.96 * Math.sqrt(y * (1 - y) / 1000)));
 
@@ -165,10 +187,17 @@
                 },
                 yaxis: {
                     title: 'Probability',
-                    range: [0, Math.max(...yValues) * 1.1]
+                    range: [0, Math.max(...upperCI) * 1.2]
                 },
                 hovermode: 'closest',
-                showlegend: true
+                showlegend: true,
+                height: 600,
+                margin: {
+                    l: 50,
+                    r: 50,
+                    t: 50,
+                    b: 50
+                }
             };
 
             Plotly.newPlot('poisson-plot', data, layout);
@@ -195,33 +224,21 @@
                     y: yValues,
                     mode: 'lines',
                     name: 'Normal PDF',
-                    line: { 
-                        shape: 'spline', 
-                        color: 'rgb(31, 119, 180)', 
-                        width: 1 // Adjust the line width here
-                    }
+                    line: { shape: 'spline', color: 'rgb(31, 119, 180)', width: 1 }
                 },
                 {
                     x: xValues,
                     y: upperCI,
                     mode: 'lines',
                     name: '95% CI Upper',
-                    line: { 
-                        dash: 'dash', 
-                        color: 'rgba(31, 119, 180, 0.3)', 
-                        width: 0.5 // Adjust the line width here
-                    }
+                    line: { dash: 'dash', color: 'rgba(31, 119, 180, 0.3)' }
                 },
                 {
                     x: xValues,
                     y: lowerCI,
                     mode: 'lines',
                     name: '95% CI Lower',
-                    line: { 
-                        dash: 'dash', 
-                        color: 'rgba(31, 119, 180, 0.3)', 
-                        width: 1 // Adjust the line width here
-                    },
+                    line: { dash: 'dash', color: 'rgba(31, 119, 180, 0.3)' },
                     fill: 'tonexty',
                     fillcolor: 'rgba(31, 119, 180, 0.1)'
                 }
@@ -231,29 +248,51 @@
                 title: 'Normal Distribution',
                 xaxis: {
                     title: 'x',
-                    range: [30, 100]
+                    range: [0, 100]
                 },
                 yaxis: {
                     title: 'Probability Density',
-                    range: [0, 0.1]
+                    range: [0, Math.max(...upperCI) * 1.2]
                 },
                 hovermode: 'closest',
-                showlegend: true
+                showlegend: true,
+                height: 600,
+                margin: {
+                    l: 50,
+                    r: 50,
+                    t: 50,
+                    b: 50
+                }
             };
 
             Plotly.newPlot('normal-plot', data, layout);
         }
 
+        // Event listeners
         document.getElementById('lambda').addEventListener('input', updatePoissonPlot);
         document.getElementById('mean').addEventListener('input', updateNormalPlot);
         document.getElementById('stddev').addEventListener('input', updateNormalPlot);
 
         document.getElementById('show-normal-btn').addEventListener('click', function() {
-            document.getElementById('normal-plot').style.display = 'block';
-            document.getElementById('normal-sliders').style.display = 'block';
-            updateNormalPlot();
+            const normalPlot = document.getElementById('normal-plot');
+            const normalSliders = document.getElementById('normal-sliders');
+            const normalEquationContainer = document.getElementById('normal-equation-container');
+            
+            if (normalPlot.style.display === 'none') {
+                normalPlot.style.display = 'block';
+                normalSliders.style.display = 'block';
+                normalEquationContainer.style.display = 'block';
+                this.textContent = 'Hide Normal Distribution';
+                updateNormalPlot();
+            } else {
+                normalPlot.style.display = 'none';
+                normalSliders.style.display = 'none';
+                normalEquationContainer.style.display = 'none';
+                this.textContent = 'Show Normal Distribution';
+            }
         });
 
+        // Initial plot
         updatePoissonPlot();
     </script>
 </body>
